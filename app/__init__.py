@@ -1,0 +1,1 @@
+"""EBrowserAgent application package."""

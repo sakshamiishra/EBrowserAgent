@@ -1,0 +1,29 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python environments, caches, and build output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated browser and test artifacts
+playwright-report/
+test-results/
+artifacts/
+screenshots/
+videos/
+traces/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

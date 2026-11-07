@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#102b3f">
+    <title>EBrowserAgent — Browser test runner</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="EBrowserAgent home">
+        <span class="brand-mark" aria-hidden="true">E</span>
+        <span>EBrowserAgent</span>
+      </a>
+      <span class="topbar-note">AI-assisted browser testing</span>
+    </header>
+
+    <main class="layout">
+      <section class="intro">
+        <p class="eyebrow">A test runner for the open web</p>
+        <h1>Describe the test.<br><span>Verify the result.</span></h1>
+        <p class="intro-copy">Give the agent a public website and a browser task in plain English. It plans structured actions and checks the expected result separately.</p>
+        <div class="principles" aria-label="Execution principles">
+          <div><span class="principle-dot"></span><span>Structured actions only</span></div>
+          <div><span class="principle-dot"></span><span>Verified outcomes</span></div>
+          <div><span class="principle-dot"></span><span>Website-independent</span></div>
+        </div>
+      </section>
+
+      <section class="panel run-panel" aria-labelledby="form-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">New browser run</p>
+            <h2 id="form-title">Test setup</h2>
+          </div>
+          <span class="step-chip">01 / 01</span>
+        </div>
+        <form id="run-form">
+          <label for="target-url">Target website</label>
+          <input id="target-url" name="target_url" type="url" placeholder="https://example.com" required autocomplete="url">
+
+          <label for="instruction">Test instruction</label>
+          <textarea id="instruction" name="instruction" rows="5" maxlength="4000" placeholder="For example: Open the sign-in form and verify that the email field is visible." required></textarea>
+
+          <div class="data-heading">
+            <div>
+              <label>Test data <span class="optional">optional</span></label>
+              <p>Values stay on the server and are not sent to the AI planner.</p>
+            </div>
+            <button id="add-data" class="small-button" type="button">+ Add field</button>
+          </div>
+          <div id="data-fields" class="data-fields"></div>
+
+          <button id="submit-run" class="submit-button" type="submit">
+            <span>Run browser test</span><span aria-hidden="true">→</span>
+          </button>
+          <p class="form-footnote">Only public HTTP and HTTPS destinations are accepted. Browser runs may take a few moments.</p>
+        </form>
+      </section>
+
+      <section id="report" class="panel report-panel" aria-labelledby="report-title" hidden>
+        <div class="panel-heading report-heading">
+          <div>
+            <p class="eyebrow">Execution report</p>
+            <h2 id="report-title">Run status</h2>
+          </div>
+          <span id="outcome-badge" class="outcome-badge">WAITING</span>
+        </div>
+        <p id="run-status" class="run-status" role="status" aria-live="polite"></p>
+        <p id="run-summary" class="summary"></p>
+        <div class="report-columns">
+          <section aria-labelledby="steps-title">
+            <h3 id="steps-title">Action history</h3>
+            <ol id="action-list" class="result-list"></ol>
+          </section>
+          <section aria-labelledby="assertions-title">
+            <h3 id="assertions-title">Verified assertions</h3>
+            <ol id="assertion-list" class="result-list"></ol>
+          </section>
+        </div>
+      </section>
+
+      <aside class="security-note">
+        <span class="shield" aria-hidden="true">◇</span>
+        <p><strong>Safety note</strong> Website text is treated as untrusted. The agent uses a bounded action allow-list, validates navigation destinations, and does not execute generated code.</p>
+      </aside>
+    </main>
+    <footer>EBrowserAgent <span>·</span> Structured browser tests with independent verification</footer>
+
+    <template id="data-row-template">
+      <div class="data-row">
+        <input class="data-key" type="text" maxlength="100" placeholder="key (e.g. email)" aria-label="Test-data key">
+        <input class="data-value" type="password" maxlength="1000" placeholder="value" aria-label="Test-data value" autocomplete="off">
+        <button class="remove-data" type="button" aria-label="Remove test-data field">×</button>
+      </div>
+    </template>
+  </body>
+</html>

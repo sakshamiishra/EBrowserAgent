@@ -1,0 +1,8 @@
+# FastAPI, Uvicorn, and Pydantic versions were reported in the existing Python 3.13 venv.
+# Playwright is a selected dependency and may need to be installed separately.
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.3
+playwright>=1.64.1,<1.65
+google-genai>=2.34,<3
+anthropic>=2.0,<3
