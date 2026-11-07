@@ -15,12 +15,11 @@ workflow. A second unfamiliar public website must also be manually validated.
 
 - Python 3.13, FastAPI, Pydantic 2, async Playwright and Chromium.
 - Replaceable async planner protocol; Gemini uses `google-genai>=2.34,<3` and
-  optional Anthropic Claude uses `anthropic>=2.0,<3`.
+  Anthropic uses `anthropic>=2.0,<3`; both SDKs are declared in `requirements.txt`.
 - Vanilla HTML, CSS, and JavaScript served by FastAPI from the same origin.
-- `.venv/` is the project environment. No packages or browser binaries were
-  installed during this implementation.
-- `.env.example` lists the Gemini and Anthropic settings, including `AI_PROVIDER`
-  (default `gemini`), both API key placeholders, model names, and provider
+- `.venv/` is the project environment; Anthropic SDK 2.6.0 is installed locally.
+- `.env.example` lists the Gemini and Anthropic settings, including
+  `AI_PROVIDER=anthropic`, both API key placeholders, model names, and provider
   timeouts. `.env` is ignored by Git. Its contents were not inspected or
   modified for this work.
 
@@ -60,7 +59,7 @@ flowchart TD
 | `app/browser/locator.py` | Snapshot-backed semantic targets, one stale refresh, strict ambiguity checks |
 | `app/browser/inspector.py` | Bounded, value-free page snapshot extraction |
 | `app/execution/executor.py` | Bounded click/fill/select/navigate/wait actions; no generated code execution |
-| `app/execution/verification.py` | Independent visible/text/URL assertion checks |
+| `app/execution/verification.py` | Independent visible/text/input-value/URL assertion checks |
 | `app/orchestration/runner.py` | Bounded plan/execute/replan/verify and final outcome |
 | `app/frontend/` | Same-origin static HTML, CSS, and JavaScript interface |
 
@@ -90,21 +89,22 @@ production.
 
 ### Milestone 3 — Gemini integration and AI planner
 
-**Status: IMPLEMENTED — AWAITING REVIEW AND APPROVAL; LIVE GENERATION PENDING**
+**Implementation: COMPLETE. Offline verification: latest reported suite was 202 passing tests (not rerun for this documentation edit). Manual validation: Anthropic smoke test succeeded with a canonical plan and no browser launch.**
 
 Provider abstraction, Gemini async JSON generation, sanitized provider request,
 content-bound SHA-256 integrity check, canonical Pydantic validation, action
 field bounds, `value_ref` checks, safe diagnostics, and provider cleanup are
 implemented. Only test-data keys are sent to the planner; values remain local
-to the future execution path. Sanitization handles bounded literal,
+to the trusted executor. Sanitization handles bounded literal,
 normalization, and encoded forms but is not a complete transform or
 process-isolation boundary. The SDK metadata connectivity check succeeded in
-prior user-run diagnostics, while generation returned HTTP 503 `UNAVAILABLE`
-or timed out. Live planner generation remains unverified.
+prior user-run diagnostics. Gemini generation returned HTTP 503 `UNAVAILABLE`
+or timed out; no successful live Gemini generation is claimed. The Anthropic
+smoke test used a synthetic snapshot and did not visit a website.
 
 ### Milestone 4 — Dynamic locators and safe executor
 
-**Status: IMPLEMENTED — CORRECTIONS APPLIED; AWAITING INDEPENDENT REVIEW; REAL-BROWSER VALIDATION PENDING**
+**Implementation: COMPLETE. Offline verification: included in the latest reported 202-pass suite. Manual validation: PHPTravels navigation and fill passed; this does not establish compatibility with other sites.**
 
 `DynamicLocatorResolver` prefers roles/names, labels, placeholders, exact text,
 and allowed attributes. CSS is restricted to simple element or allow-listed
@@ -119,17 +119,21 @@ Navigation calls `navigate_page`; referenced values come from the internal
 request mapping and are omitted from results.
 Interactions bind click, fill, and select to the exact element handle captured
 at final semantic resolution. If that node detaches, the action fails rather
-than retargeting a replacement. Password controls expose safe type/name/
-label metadata, never their current value; literal password fills are rejected
+than retargeting a replacement. Snapshots expose bounded password type/name/
+label metadata but omit current values; literal password fills are rejected
 and `value_ref` fills are resolved only by the trusted executor.
+Fill targets must be grounded in snapshot metadata. The inspector prioritizes
+fillable controls within its bounded element budget, and failed fill-target
+lookups are not replanned against unchanged evidence.
 
 ### Milestone 5 — Orchestration and verification
 
-**Status: IMPLEMENTED — CORRECTIONS APPLIED; AWAITING INDEPENDENT REVIEW; REAL-BROWSER VALIDATION PENDING**
+**Implementation: COMPLETE. Offline verification: included in the latest reported 202-pass suite. Manual validation: the PHPTravels run completed with PASS / COMPLETED after independent textbox-value verification.**
 
 `TestOrchestrator` validates the target, starts a managed session, inspects,
 plans through `PlannerService`, executes, reinspects after actions, and replans
-after state changes or execution failures up to three times. The executor
+after state changes or recoverable failures up to three times. An unresolved
+fill-target lookup stops replanning against unchanged evidence. The executor
 bounds successful and failed attempts to 50 total. Each planned action
 occurrence has a stable report identity and a separate attempt count; replans
 reconcile matching actions one-to-one, so identical actions cannot discharge
@@ -158,7 +162,7 @@ attempts when cleanup cooperates.
 
 ### Milestone 6 — Frontend and reporting
 
-**Status: IMPLEMENTED — CORRECTIONS APPLIED; AWAITING INDEPENDENT REVIEW; MANUAL UI VALIDATION PENDING**
+**Implementation: COMPLETE. Offline verification: included in the latest reported 202-pass suite. The PHPTravels run passed; separate manual frontend walkthrough status is not confirmed here.**
 
 `GET /api/health` and `POST /api/runs` are available under `/api`. The run
 endpoint returns a typed final response with action steps and sanitized
@@ -170,13 +174,14 @@ progress and persistent previous-run history are not implemented.
 
 ### Milestone 7 — Readiness, security, and documentation
 
-**Status: IMPLEMENTED — CORRECTIONS APPLIED; AWAITING INDEPENDENT REVIEW; MANUAL SUBMISSION VALIDATION PENDING**
+**Implementation: COMPLETE. Offline verification: latest reported result is 202 passing tests (not rerun for this documentation edit). Second-site validation and successful live Gemini generation remain unverified.**
 
 README and this project record document setup, API usage, architecture,
 security boundaries, live validation status, and limitations. `APPROACH.md`
 records the implementation strategy. The Milestones 4–7 implementation did
-not add dependencies. No live browser, Gemini request, or site demonstration
-was performed during that work.
+not add dependencies. Later user-run validation succeeded for the Anthropic
+planner smoke test and one PHPTravels browser run; no second site or successful
+live Gemini generation is claimed.
 
 ## Important design and security decisions
 
@@ -192,6 +197,10 @@ was performed during that work.
 - Each run uses a fresh managed browser context. Initial and application-driven
   navigation use `navigate_page`; requests are checked by the context URL
   guard. Browser-owned network paths and DNS rebinding remain limitations.
+- Snapshots omit current input values. The independent verifier can read a
+  targeted input value for an `assert_text` check, compares it in memory, and
+  omits it from reports/logs. Literal password fills remain rejected; password
+  fills use `value_ref`.
 - Application-level URL policy is not a substitute for network-level egress
   controls. The current service has no authentication, rate limiting, job
   queue, or public deployment hardening.
@@ -206,10 +215,9 @@ The current offline suite is run with:
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The prior Milestone 4–7 offline verification ran 133 tests. The current suite
-also includes offline Anthropic-provider tests; see the latest implementation
-report for its exact result. Tests use mocked providers, SDKs, Playwright pages,
-locators, sessions, and URL-policy boundaries. They do not establish real
+The latest reported complete offline suite ran 202 tests and passed; this
+documentation edit does not rerun it. Tests use mocked providers, SDKs,
+Playwright pages, locators, sessions, and URL-policy boundaries. They do not establish real
 Playwright/browser compatibility or live Gemini/Anthropic generation. The
 inspector's embedded JavaScript is not exercised against a real DOM.
 
@@ -245,23 +253,31 @@ for the Milestones 4–7 implementation. The later Anthropic integration added
 API provider construction, dependency declarations, environment template, and
 documentation. The root `.env` was not read or modified.
 
-## Manual validation still required
+## Manual validation status
 
-1. User installs declared packages and Chromium if missing.
-2. User manually starts the backend and checks the local frontend and health
-   route.
-3. User performs a PHPTravels test and records browser/locator behavior.
-4. User repeats a new instruction on an unfamiliar public site.
-5. User runs the Gemini planner smoke test when the generation endpoint is
-   available; previous live generation returned 503 or timed out.
-6. User handles demonstration recording, Git commit/push, and submission.
+Completed:
+
+- Anthropic planner smoke test generated a canonical structured plan from a
+  synthetic snapshot; no browser or website was involved.
+- PHPTravels at `https://phptravels.net/`: navigation PASS, fill PASS,
+  independent textbox-value assertion PASS, overall PASS / COMPLETED.
+
+Still unverified:
+
+1. A second unfamiliar public website.
+2. Successful live Gemini generation; previous attempts returned HTTP 503 or
+   timed out.
+3. A separate manual frontend/health-route walkthrough and any demonstration
+   recording.
+4. Whether Chromium or other local components still need installation.
 
 No Task 1 project files, credentials, or `.env` contents were used or modified.
 
 ## Secondary provider integration — Anthropic Claude
 
-`AI_PROVIDER` selects exactly one provider: `gemini` is the default and
-`anthropic` selects Claude. Missing Anthropic credentials and unsupported
+`AI_PROVIDER` selects exactly one provider: `.env.example` sets it to
+`anthropic`, while application code defaults to `gemini` if the setting is
+absent. Missing Anthropic credentials and unsupported
 provider configuration fail safely without fallback. Both adapters use the
 same `PlannerService`, retaining canonical Pydantic validation, sanitizer
 integrity verification, and test-data value isolation.
@@ -273,14 +289,15 @@ and disables SDK retries. Set `ANTHROPIC_API_KEY` in the backend `.env` or
 process environment; process values override `.env`. Keep `.env` out of source
 control. Anthropic API billing is separate from Claude.ai subscriptions.
 
-After configuring `AI_PROVIDER=anthropic` and the key, the user can manually
-run the one-request synthetic smoke test:
+To repeat the one-request synthetic smoke test, configure
+`AI_PROVIDER=anthropic` and the key, then run:
 
 ```bash
 python scripts/anthropic_planner_smoke_test.py
 ```
 
-The script has not been run, and live Anthropic compatibility remains
-unverified. The Anthropic SDK is not installed in the current virtual
-environment; tests mock its asynchronous client. Gemini remains the default
-and its adapter is unchanged.
+The user-run script succeeded and generated a canonical plan. The local
+virtual environment reports Anthropic SDK 2.6.0, within the declared
+`anthropic>=2.0,<3` range. The smoke test did not launch a browser. Gemini
+remains available as an alternative; reported live generation attempts have
+returned 503 or timed out.

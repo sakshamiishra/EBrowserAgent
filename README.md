@@ -7,24 +7,27 @@ websites; PHPTravels is a manual demonstration target, not a hardcoded flow.
 
 ## Current status
 
-Milestones 1–7 are implemented in the workspace. Milestones 1 and 2 were
-approved previously; Milestone 3 remains implemented and awaiting review.
-Milestones 4–7 have offline mock coverage and corrections awaiting independent
-review; they still need user-run browser and live provider validation. Previous
-Gemini generation diagnostics returned HTTP 503 `UNAVAILABLE` or timed out.
-Neither live Gemini nor live Anthropic success is claimed.
+Milestones 1–7 are implemented. Milestones 1 and 2 were approved previously.
+The latest reported offline suite result is 202 passing tests; this documentation
+update does not rerun it. A user-run Anthropic planner smoke test generated a
+canonical structured plan successfully, and a manual PHPTravels browser test
+completed with PASS. A second unfamiliar website has not been confirmed.
+Previous live Gemini generation attempts returned HTTP 503 `UNAVAILABLE` or
+timed out; successful live Gemini generation is not claimed.
 
 ## Features
 
 - Natural-language test input and optional key/value test data.
-- Replaceable async planner interface; Gemini remains the default, with
-  Anthropic Claude as an explicitly selected alternative.
+- Replaceable async planner interface; the checked-in `.env.example` selects
+  Anthropic, while Gemini remains available as an alternative. If `AI_PROVIDER`
+  is unset, the application code defaults to Gemini.
 - Canonical Pydantic action validation; generated code is never executed.
 - Semantic locator resolution from bounded page snapshots, with explicit
   ambiguity rejection and one stale-snapshot refresh.
 - Bounded click, fill, select, navigate, and wait actions.
 - Sensitive fill values can be referenced by key and are resolved locally.
 - Replanning is bounded; assertions are checked separately from action results.
+  Targeted input and textarea assertions compare the live value independently.
 - Final outcomes are PASS, FAIL, or INCONCLUSIVE. PASS requires every planned
   action obligation to be resolved and every required final assertion to pass.
 - FastAPI JSON API and a same-origin HTML/CSS/vanilla JavaScript interface.
@@ -71,11 +74,12 @@ output is parsed against the canonical discriminated Pydantic action schema.
 - Pydantic 2
 - Playwright Python asynchronous API and Chromium
 - Google Gen AI Python SDK (`google-genai>=2.34,<3`)
-- Anthropic Python SDK (`anthropic>=2.0,<3`) for optional Claude planning
+- Anthropic Python SDK (`anthropic>=2.0,<3`; local environment has 2.6.0)
 - HTML, CSS, and vanilla JavaScript
 
-The user installs packages and the Chromium binary manually. No packages were
-installed during this work.
+Install the declared packages and Chromium as needed. Both provider SDKs are
+declared in `requirements.txt`; the local virtual environment has Anthropic SDK
+2.6.0 installed.
 
 ## Prerequisites and installation
 
@@ -88,20 +92,21 @@ python -m pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-These commands are for the user to run; this implementation did not install
-packages or browser binaries.
+These are setup commands; the local virtual environment reports Anthropic SDK
+2.6.0. Install any missing declared packages and the Chromium binary as needed.
 
-Copy `.env.example` to `.env`, then set `AI_PROVIDER` to `gemini` (the default)
-or `anthropic`. Set only the selected provider's API key in the backend `.env`
-or process environment; existing process environment values override `.env`.
-Keep `.env` local, server-side, and out of source control. Anthropic API usage
-is billed separately from Claude.ai subscriptions.
+Copy `.env.example` to `.env`. The template selects `AI_PROVIDER=anthropic`;
+set it to `gemini` to use Gemini instead. If the setting is absent, the
+application's code-level default is Gemini. Set the selected provider's API
+key in the backend `.env` or process environment; existing process environment
+values override `.env`. Keep `.env` local, server-side, and out of source
+control. Anthropic API usage is billed separately from Claude.ai subscriptions.
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `EBROWSER_APP_NAME` | `EBrowserAgent` | FastAPI application title |
 | `EBROWSER_ENV` | `development` | Deployment label |
-| `AI_PROVIDER` | `gemini` | Selects exactly one planner provider; no fallback |
+| `AI_PROVIDER` | `anthropic` in `.env.example`; code fallback `gemini` | Selects exactly one planner provider; no fallback |
 | `GEMINI_API_KEY` | empty | Server-side Gemini credential |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Configured planner model |
 | `GEMINI_REQUEST_TIMEOUT_SECONDS` | `45` | Planner request deadline |
@@ -114,8 +119,9 @@ is billed separately from Claude.ai subscriptions.
 
 Missing Anthropic credentials or unsupported provider configuration fails
 safely without falling back to Gemini. Provider errors do not return
-credentials or raw SDK exception text. Gemini remains the default and its
-adapter is unchanged.
+credentials or raw SDK exception text. The Anthropic adapter is the template's
+selected provider; Gemini remains selectable, but live Gemini generation has
+not succeeded in the reported attempts.
 
 To manually make one synthetic Anthropic planner request from the project root
 with `.venv` activated, set `AI_PROVIDER=anthropic`, configure
@@ -126,7 +132,8 @@ python scripts/anthropic_planner_smoke_test.py
 ```
 
 The script uses only a synthetic `example.test` snapshot, launches no browser,
-and makes one Claude generation request. It was not run during implementation.
+and makes one Claude generation request. The reported manual run succeeded and
+returned a canonical structured plan; it did not visit a website.
 
 ## Run the backend and frontend
 
@@ -137,8 +144,8 @@ uvicorn app.main:app --reload
 ```
 
 Open `http://127.0.0.1:8000/` in a browser. The API and static frontend are
-served from the same origin. The user must perform this manual launch and
-browser validation; no application or browser was started for this work.
+served from the same origin. Manual end-to-end browser validation has succeeded
+on PHPTravels as recorded below. No second-site validation is claimed.
 
 `GET /api/health` returns `{"status":"ok"}`. The frontend submits one
 synchronous `POST /api/runs` request and displays the completed report. It
@@ -168,10 +175,11 @@ generic message rather than echoing invalid fields or supplied values.
 The planner sees a bounded snapshot and proposes structured actions. The
 executor resolves the target from the current snapshot, performs an allow-listed
 action, and inspects the page again. Remaining actions are resolved against the
-fresh snapshot before execution. After a page change or action failure, the
-orchestrator may replan up to three times. Assertions must follow all actions
-and are final postconditions checked only after every action obligation is
-resolved. A final assertion cannot make an incomplete action sequence pass.
+fresh snapshot before execution. Replanning is bounded to three attempts; an
+unresolved fill-target lookup is not retried without new evidence. Assertions
+must follow all actions and are final postconditions checked only after every
+action obligation is resolved. A final assertion cannot make an incomplete
+action sequence pass.
 
 ## Outcomes
 
@@ -211,10 +219,11 @@ Python, JavaScript, shell, or arbitrary Playwright code. Application navigation
 uses `navigate_page`; browser-context HTTP(S) requests pass through the
 existing URL guard.
 
-Password controls expose bounded locator metadata such as type and accessible
-label, but their current values are never inspected. Password fills require a
-`value_ref`; literal fills are rejected, and the referenced value is resolved
-only by the backend executor.
+Snapshots omit current input values, including password values. The independent
+verifier reads a targeted input or textarea value locally only when checking an
+`assert_text`; it compares in memory and does not include the value in reports or
+logs. Password fills require a `value_ref`; literal fills are rejected, and the
+referenced value is resolved only by the backend executor.
 
 ## Security considerations
 
@@ -223,9 +232,10 @@ only by the backend executor.
   addresses are rejected. DNS failures/timeouts fail closed.
 - Page content is untrusted planner input. It is bounded, and the prompt
   explicitly rejects webpage instructions as authority.
-- Input values are omitted from snapshots. Password fields expose safe locator
-  metadata only; their values are not inspected. Test-data values are not sent
-  to the planner and are not included in reports.
+- Input values are omitted from snapshots. The verifier may read a targeted
+  input value for an independent assertion, but does not report or log it.
+  Password fields expose safe locator metadata; literal password fills are
+  rejected. Test-data values are not sent to the planner or included in reports.
 - Provider diagnostics are allow-listed; raw SDK exception text, response
   bodies, headers, and API keys are not returned to the API client.
 - `.env` is ignored by Git. The frontend does not receive either provider key.
@@ -242,20 +252,24 @@ Run the offline suite from the project root:
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The suite uses fake providers, pages, locators, and sessions. It does not
-launch a real browser or contact Gemini. Mock coverage is not proof of
-real-browser compatibility. The embedded page inspector is still not exercised
-against a real DOM.
+The latest reported suite result is 202 passing tests (not rerun for this
+documentation change). The suite uses fake providers, pages, locators, and
+sessions. It does not contact a provider or launch a browser. Mock coverage is
+not proof of broad real-browser compatibility; the embedded inspector has not
+been tested against arbitrary real DOMs.
 
 ## Known limitations and troubleshooting
 
 - Live Gemini generation has returned HTTP 503 `UNAVAILABLE` or timed out in
   previous manual diagnostics. The planner integration is not live-validated;
   see the safe diagnostic scripts in `scripts/` and run them manually if needed.
-- Anthropic generation and its manual smoke test have not been run live.
-  Anthropic API use is billed separately from Claude.ai subscriptions.
-- A successful live browser run still needs to be tested manually after
-  installing Playwright and Chromium.
+- The Anthropic planner smoke test succeeded with a canonical structured plan;
+  it did not launch a browser. Anthropic API use is billed separately from
+  Claude.ai subscriptions.
+- The PHPTravels manual browser run at `https://phptravels.net/` completed:
+  navigation PASS, fill PASS, independent textbox-value assertion PASS, and
+  overall outcome PASS / COMPLETED. This is one site-specific manual result,
+  not proof of compatibility with other sites.
 - Accessible names are a bounded first-pass extraction, not a complete browser
   accessibility-tree implementation. Some custom controls or highly dynamic
   sites may produce INCONCLUSIVE results.
@@ -285,17 +299,13 @@ and the required page control is represented in the captured snapshot. A
 rejected URL is a policy decision, not a browser failure. Do not disable URL
 validation to work around it.
 
-## Manual demonstration checklist
+## Demonstration status
 
-1. Start with the PHPTravels demo site and a short task whose expected state is
-   visible, such as opening its login form.
-2. Confirm the report distinguishes completed actions from verified
-   assertions; record the outcome and any locator limitations.
-3. Repeat with a second unfamiliar public site and a different instruction.
-   Do not assume that selectors, labels, or login workflows transfer between
-   sites.
-4. If Gemini generation remains unavailable, record that blocker. Fake
-   providers are injected in unit tests only; the application does not expose
-   an offline mock-provider demo mode. Do not present mocked results as live.
-5. Capture a five-minute walkthrough only after manual checks. The current
-   repository contains no live-demo evidence or recording.
+- [x] Anthropic planner smoke test generated a canonical plan using a synthetic
+  snapshot; no browser or website was involved.
+- [x] PHPTravels manual run completed with navigation, fill, independent
+  textbox-value assertion, and overall outcome all passing.
+- [ ] Repeat on a second unfamiliar public website. Do not assume selectors,
+  labels, or workflows transfer between sites.
+- [ ] Gemini live generation remains unverified after prior 503/timeouts.
+- [ ] Any demonstration recording remains to be made; no recording is claimed.

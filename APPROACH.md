@@ -12,8 +12,11 @@ expected condition was met.
 FastAPI validates a bounded request and passes it to `TestOrchestrator`. The
 orchestrator opens a fresh managed Playwright session, inspects a compact page
 snapshot, and calls `PlannerService`. Planner providers implement one async
-protocol; Gemini is replaceable. Provider output is parsed by the canonical
-Pydantic action models before the executor can use it.
+protocol; Gemini and Anthropic are supported alternatives. The checked-in
+`.env.example` selects Anthropic, while the code-level default when `AI_PROVIDER`
+is absent remains Gemini. Provider output is parsed by the canonical Pydantic
+action models before the executor can use it. Anthropic SDK 2.6.0 is installed
+in the local virtual environment and is within the declared requirements range.
 
 The `DynamicLocatorResolver`, `SafeActionExecutor`, and `AssertionVerifier`
 are separate components. The resolver maps a structured target to current
@@ -39,6 +42,10 @@ keys for optional test data. It returns structured JSON, never code. The
 planner service validates actions, bounds, value sources, URLs, and references.
 Sensitive values are resolved from the internal request only when a fill action
 uses `value_ref`; they are not included in provider requests or reports.
+Fill targets must be grounded in snapshot metadata. The inspector prioritizes
+fillable controls within its bounded element budget; if a fill target is not
+observed, planning fails safely instead of guessing. An unresolved fill lookup
+is not replanned against unchanged evidence.
 
 The executor runs actions sequentially with per-action timeouts, a run-wide
 action cap, and a configurable overall deadline (300 seconds by default;
@@ -67,7 +74,10 @@ which is outside this assignment's current scope.
 Assertions are final postconditions: the schema requires all browser actions to
 precede all assertions, which are checked only after execution obligations are
 resolved. Assertions are checked against the final page state rather than
-inferred from successful clicks or fills. A required assertion that is demonstrably false
+inferred from successful clicks or fills. `assert_text` on a targeted input or
+textarea compares the live value exactly; other targeted text checks visible
+text. The locator must resolve uniquely. Values are compared in memory and are
+not included in reports. A required assertion that is demonstrably false
 produces FAIL. PASS requires at least one required assertion and every required
 assertion passing. If the planner supplies no required assertions, an
 inspection is unreliable, or required evidence cannot be established, the
@@ -83,6 +93,9 @@ after every action completed.
 - Fresh browser contexts, bounded snapshots/actions/replans, and safe error
   messages.
 - Same-origin frontend; no API key or page HTML is returned to it.
+- Snapshot extraction omits current input values. The independent verifier may
+  read an input value for a requested assertion, but never returns or logs it;
+  password fills still require `value_ref`.
 - Dynamic locator uniqueness checks avoid a dangerous “choose first” fallback.
   Interactions recheck count and visibility at the action boundary; a target
   that becomes ambiguous fails safely. Password fields expose locator metadata
@@ -103,8 +116,13 @@ The API handles one synchronous run per request; it has no persistent run
 history, event stream, or cancellation endpoint. The frontend shows a waiting
 state and then the final report, not live action-by-action updates.
 
-Offline tests use mocks and fakes. They do not prove compatibility with real
-Chromium, all Playwright locator behavior, production network conditions, or
-live Gemini generation. Previous live Gemini generation diagnostics returned
-HTTP 503 `UNAVAILABLE` or timed out; a real PHPTravels run and a second
-unfamiliar-site run remain manual validation tasks.
+The latest reported offline suite result is 202 passing tests; it was not rerun
+for this documentation change. Offline tests use mocks and fakes, so they do
+not prove general compatibility with Chromium, all Playwright locator behavior,
+production network conditions, or live Gemini generation. The user-run
+Anthropic planner smoke test succeeded and returned a canonical structured plan;
+it did not launch a browser. The manual PHPTravels run at
+`https://phptravels.net/` completed with navigation PASS, fill PASS, independent
+textbox-value assertion PASS, and overall PASS / COMPLETED. No second unfamiliar
+site has been confirmed. Previous live Gemini generation diagnostics returned
+HTTP 503 `UNAVAILABLE` or timed out.
